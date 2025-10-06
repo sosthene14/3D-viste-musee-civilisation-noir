@@ -77,7 +77,7 @@ export default [
         origin: "Gabon",
         category: "Sculpture",
         model3dUrl: "/femme_fs1.glb",
-        imageUrl: "/assets/femme_fs.webp",
+        imageUrl: "/assets/femme_fs.jpg",
         qrCode: "MCN-005",
     },
     {
@@ -93,7 +93,7 @@ export default [
         origin: "Gabon",
         category: "Sculpture",
         model3dUrl: "/femme_ch1.glb",
-        imageUrl: "/assets/femme_ch.webp",
+        imageUrl: "/assets/femme_ch.jpg",
         qrCode: "MCN-005",
     },
     {
@@ -109,7 +109,7 @@ export default [
         origin: "Gabon",
         category: "Sculpture",
         model3dUrl: "/buf1.glb",
-        imageUrl: "/assets/buf.webp",
+        imageUrl: "/assets/buf.jpg",
         qrCode: "MCN-005",
     },
 ];

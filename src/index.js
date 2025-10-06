@@ -10,7 +10,7 @@ import { initUploadModal, toastMessage } from "./utils";
 import { getMuseumList } from "./services";
 import { Museum } from "./constants";
 import artworks from "./artworkData";
-import QRCode from 'qrcode'; // Import QRCode library
+import QRCode from 'qrcode';
 
 const clock = new THREE.Clock();
 const scene = new THREE.Scene();
@@ -26,7 +26,6 @@ const ModelPaths = {
     [Museum.ART_GALLERY]: "art_gallery/scene.gltf",
 };
 
-// Mapping des art_holder aux modèles .glb
 const ArtHolderToGLB = {
     "art_holder1": "buf1.glb",
     "art_holder2": "dogon2.glb",
@@ -77,6 +76,7 @@ document.head.appendChild(modelViewerScript);
 // Load QRCode library
 const qrCodeScript = document.createElement('script');
 qrCodeScript.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js';
+qrCodeScript.type = 'module';
 document.head.appendChild(qrCodeScript);
 
 // Load Tailwind CSS
@@ -106,8 +106,6 @@ container.addEventListener("keyup", (e) => {
     }
 });
 
- 
-
 function openMenu() {
     menuOpen = true;
     document.getElementById("menu-container").style.display = "flex";
@@ -123,81 +121,69 @@ function createModal(artwork, glbPath) {
     modal.className = 'fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4';
     
     const modalContent = document.createElement('div');
-    modalContent.className = 'bg-gray-900 rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col md:flex-row overflow-hidden relative';
+    modalContent.className = 'bg-gray-800 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col md:flex-row overflow-hidden relative shadow-2xl';
     
-    // Loading spinner
     const loader = document.createElement('div');
-    loader.className = 'absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75 z-10';
+    loader.className = 'absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 z-10';
     loader.innerHTML = `
-        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-400"></div>
     `;
     
-    // Model viewer
     const modelViewer = document.createElement('model-viewer');
-    modelViewer.className = 'w-full md:w-1/2 h-96 md:h-auto';
+    modelViewer.className = 'w-full md:w-1/2 h-96 md:h-auto bg-white rounded-l-2xl';
     modelViewer.setAttribute('src', glbPath);
     modelViewer.setAttribute('auto-rotate', '');
     modelViewer.setAttribute('camera-controls', '');
     modelViewer.setAttribute('ar', '');
     modelViewer.setAttribute('shadow-intensity', '1');
-    modelViewer.style.backgroundColor = '#fff';
     
-    // Hide loader when model is loaded
     modelViewer.addEventListener('load', () => {
         loader.style.display = 'none';
     });
     
-    // Details section
     const detailsDiv = document.createElement('div');
-    detailsDiv.className = 'w-full md:w-1/2 p-6 text-white overflow-y-auto';
+    detailsDiv.className = 'w-full md:w-1/2 p-8 text-white overflow-y-auto bg-gradient-to-b from-gray-800 to-gray-900';
     
-    // Language selector
     const langSelect = document.createElement('select');
-    langSelect.className = 'mb-4 p-2 bg-gray-800 text-white rounded-md border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500';
+    langSelect.className = 'mb-6 p-3 bg-gray-700 text-white rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 transition';
     langSelect.innerHTML = `
         <option value="en">English</option>
         <option value="fr">Français</option>
         <option value="wo">Wolof</option>
     `;
     
-    // QR code canvas
     const qrCanvas = document.createElement('canvas');
-    qrCanvas.className = 'mb-4';
+    qrCanvas.className = 'mb-6 border-4 border-white rounded-lg';
     QRCode.toCanvas(qrCanvas, `https://hackaton-mus-v1.vercel.app/artwork/${artwork.id}`, { width: 150 }, (error) => {
         if (error) console.error('QR Code generation failed:', error);
     });
     
-    // Details content
     const detailsContent = document.createElement('div');
-    detailsContent.className = 'space-y-4';
+    detailsContent.className = 'space-y-6';
     
     function updateDetailsContent(lang) {
         detailsContent.innerHTML = `
-            <h2 class="text-2xl font-bold">${artwork.title[lang]}</h2>
-            <p><strong>Description:</strong> ${artwork.description[lang]}</p>
-            <p><strong>Artist:</strong> ${artwork.artist}</p>
-            <p><strong>Period:</strong> ${artwork.period}</p>
-            <p><strong>Origin:</strong> ${artwork.origin}</p>
-            <p><strong>Category:</strong> ${artwork.category}</p>
-            <p><strong>QR Code:</strong> ${artwork.qrCode}</p>
+            <h2 class="text-3xl font-bold text-blue-300">${artwork.title[lang]}</h2>
+            <p class="text-gray-200"><strong>Description:</strong> ${artwork.description[lang]}</p>
+            <p class="text-gray-200"><strong>Artist:</strong> ${artwork.artist}</p>
+            <p class="text-gray-200"><strong>Period:</strong> ${artwork.period}</p>
+            <p class="text-gray-200"><strong>Origin:</strong> ${artwork.origin}</p>
+            <p class="text-gray-200"><strong>Category:</strong> ${artwork.category}</p>
+            <p class="text-gray-200"><strong>QR Code:</strong> Scan to visit artwork page</p>
         `;
     }
     
-    // Initialize with English
     updateDetailsContent('en');
     
-    // Update content on language change
     langSelect.addEventListener('change', (e) => {
         updateDetailsContent(e.target.value);
     });
     
-    // Close button
     const closeButton = document.createElement('button');
     closeButton.textContent = 'Close';
-    closeButton.className = 'absolute top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition';
+    closeButton.className = 'absolute top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition duration-300';
     closeButton.onclick = () => document.body.removeChild(modal);
     
-    // Assemble modal
     detailsDiv.appendChild(langSelect);
     detailsDiv.appendChild(qrCanvas);
     detailsDiv.appendChild(detailsContent);
@@ -248,15 +234,9 @@ function loadModel() {
         let count = 0;
         annotationMesh = {};
         gltf.scene.traverse((child) => {
-            if (child.isMesh) {
-             }
-            if (child.name === "art_gallery") {
-                gallery_mesh = child;
-            }
-
             if (child.isMesh && /^art_holder\d*$/.test(child.name)) {
                 if (!(child.name in ArtHolderToGLB)) {
-                     child.visible = false;
+                    child.visible = false;
                     return;
                 }
 
@@ -280,23 +260,22 @@ function loadModel() {
                     camera.lookAt(targetPosition);
                 };
 
-                annotationDiv.onAnnotationClick = ({ event, id }) => {
-                    const artwork = artworks.find(a => a.model3dUrl === `/${ArtHolderToGLB[id]}`);
-                    if (artwork) {
-                        createModal(artwork, `/assets/${ArtHolderToGLB[id]}`);
-                    } else {
-                        toastMessage(`No details available for ${id}`);
-                    }
-                };
-
                 scene.add(label);
 
                 const artwork = artworks.find(a => a.model3dUrl === `/${ArtHolderToGLB[child.name]}`);
                 if (artwork && artwork.imageUrl) {
-                     textureLoader.load(artwork.imageUrl, (texture) => {
-                        const material = new THREE.MeshBasicMaterial({ map: texture });
+                    textureLoader.load(artwork.imageUrl, (texture) => {
+                        const material = new THREE.MeshStandardMaterial({
+                            map: texture,
+                            metalness: 0.1,
+                            roughness: 0.5
+                        });
                         child.material = material;
                         child.material.needsUpdate = true;
+
+                        // Add subtle emissive glow for hover effect
+                        child.userData.originalMaterial = material;
+                        child.userData.hovered = false;
 
                         const geometry = child.geometry;
                         const uvs = geometry.attributes.uv.array;
@@ -319,14 +298,65 @@ function loadModel() {
             }
         });
 
- 
+        // Raycaster for frame click detection
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        container.addEventListener('click', (event) => {
+            if (menuOpen) return;
+
+            mouse.x = (event.clientX / container.clientWidth) * 2 - 1;
+            mouse.y = -(event.clientY / container.clientHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(Object.values(annotationMesh).map(item => item.mesh));
+
+            if (intersects.length > 0) {
+                const intersectedMesh = intersects[0].object;
+                const artwork = artworks.find(a => a.model3dUrl === `/${ArtHolderToGLB[intersectedMesh.name]}`);
+                if (artwork) {
+                    createModal(artwork, `/assets/${ArtHolderToGLB[intersectedMesh.name]}`);
+                } else {
+                    toastMessage(`No details available for ${intersectedMesh.name}`);
+                }
+            }
+        });
+
+        // Hover effect
+        container.addEventListener('mousemove', (event) => {
+            mouse.x = (event.clientX / container.clientWidth) * 2 - 1;
+            mouse.y = -(event.clientY / container.clientHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(Object.values(annotationMesh).map(item => item.mesh));
+
+            Object.values(annotationMesh).forEach(({ mesh }) => {
+                if (intersects.length > 0 && intersects[0].object === mesh) {
+                    if (!mesh.userData.hovered) {
+                        mesh.userData.hovered = true;
+                        mesh.material = new THREE.MeshStandardMaterial({
+                            map: mesh.userData.originalMaterial.map,
+                            metalness: 0.3,
+                            roughness: 0.4,
+                            emissive: new THREE.Color(0x3333ff),
+                            emissiveIntensity: 0.2
+                        });
+                    }
+                } else {
+                    if (mesh.userData.hovered) {
+                        mesh.userData.hovered = false;
+                        mesh.material = mesh.userData.originalMaterial;
+                    }
+                }
+            });
+        });
+
         onWindowResize();
         fpView = new FirstPersonPlayer(camera, scene, container);
         fpView.loadOctaTree(gltf.scene);
         fpView.updatePlayer(0.01);
 
         loadingContainer.style.display = 'none';
- 
     }, (xhr) => {
         const progress = xhr.total > 0 ? (xhr.loaded / xhr.total) * 100 : (xhr.loaded / 60000);
     }, (error) => {
@@ -365,4 +395,4 @@ function animate() {
 }
 
 loadModel();
-animate()
+animate();
