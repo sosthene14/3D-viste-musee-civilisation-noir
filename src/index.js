@@ -163,7 +163,7 @@ function createModal(artwork, glbPath) {
     // QR code canvas
     const qrCanvas = document.createElement('canvas');
     qrCanvas.className = 'mb-4';
-    QRCode.toCanvas(qrCanvas, `https://museum.example.com/artwork/${artwork.id}`, { width: 150 }, (error) => {
+    QRCode.toCanvas(qrCanvas, `https://hackaton-mus-v1.vercel.app/artwork/${artwork.id}`, { width: 150 }, (error) => {
         if (error) console.error('QR Code generation failed:', error);
     });
     
