@@ -4,77 +4,341 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Virtual Art Museum</title>
-    <style>
-        body { margin: 0; }
-        canvas { display: block; }
-        #model-container { width: 100vw; height: 100vh; } 
-    </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" integrity="sha512-dPXYcDub/aeb08c63jRq/k6GaKccl256JQy/AnOq7CAnEZ9FzSL9wSbcZkMp4R26vBsMLFYH4kQ67/bbV8XaCQ==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <!-- <link rel="stylesheet" href="index.css"> -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css" integrity="sha512-UtLOu9C7NuThQhuXXrGwx9Jb/z9zPQJctuAgNUBK3Z6kkSYT9wJ+2+dh6klS+TDBCV9kNPBbAxbVD+vCcfGPaA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #model-container {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Loading Screen */
+        .loading-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            gap: 40px;
+        }
+
+        .loader {
+            width: 60px;
+            height: 60px;
+            border: 4px solid #2a2a2a;
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #loading-bar {
+            width: 300px;
+            height: 4px;
+            background: #2a2a2a;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        #progress {
+            height: 100%;
+            width: 0%;
+            background: #fff;
+            transition: width 0.3s ease;
+        }
+
+        .loading-text {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            text-align: center;
+            color: #fff;
+        }
+
+        .loading-text > div:first-child {
+            font-size: 18px;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .loading-text > div:last-child {
+            font-size: 14px;
+            color: #888;
+        }
+
+        /* Toast Alert */
+        .toast-alert {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            background: #fff;
+            color: #0a0a0a;
+            padding: 16px 24px;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            z-index: 9999;
+            font-size: 14px;
+            font-weight: 500;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* Upload Modal */
+        .upload-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            z-index: 9998;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .upload-modal-close {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            width: 40px;
+            height: 40px;
+            background: #fff;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            font-size: 24px;
+            transition: transform 0.2s ease;
+        }
+
+        .upload-modal-close:hover {
+            transform: scale(1.1);
+        }
+
+        .upload-container {
+            background: #1a1a1a;
+            border: 2px dashed #444;
+            border-radius: 12px;
+            padding: 60px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 400px;
+            min-height: 300px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .upload-container:hover {
+            border-color: #fff;
+            background: #222;
+        }
+
+        #upload-text {
+            color: #888;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .upload-preview {
+            max-width: 100%;
+            max-height: 300px;
+            display: none;
+            border-radius: 8px;
+        }
+
+        .upload-details {
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: 30px;
+            margin-left: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-width: 350px;
+        }
+
+        .upload-details input,
+        .upload-details textarea {
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: #fff;
+            font-size: 14px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .upload-details input:focus,
+        .upload-details textarea:focus {
+            border-color: #fff;
+        }
+
+        .upload-details textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .btn {
+            background: #fff;
+            color: #0a0a0a;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        /* Spinner */
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid #0a0a0a;
+            border-top: 2px solid transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        /* Cropper Container */
+        .upload-cropper-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+            padding: 40px;
+        }
+
+        .upload-cropper {
+            max-width: 800px;
+            max-height: 600px;
+            width: 100%;
+        }
+
+        .crop-preview {
+            max-width: 100%;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .upload-modal {
+                flex-direction: column;
+            }
+
+            .upload-container {
+                min-width: auto;
+                width: 100%;
+                padding: 40px 20px;
+            }
+
+            .upload-details {
+                margin-left: 0;
+                margin-top: 20px;
+                min-width: auto;
+                width: 100%;
+            }
+
+            #loading-bar {
+                width: 250px;
+            }
+
+            .toast-alert {
+                top: 20px;
+                right: 20px;
+                left: 20px;
+            }
+        }
+    </style>
 </head>
 <body>
 
     <div class="loading-container" id="loading-container">
-
-        <div id="loading-bar">
-            <div id="progress"></div>
+        <div class="loader"></div>
+        
+     
+        <div class="loading-text">
+            <div class="text-gray-400">Chargement de la scène</div>
+            <div class="text-gray-400">Tip: utilisez les flèches directionnelles pour naviguer</div>
         </div>
-
-        <div class="flex flex-col" style="gap: 15px; text-align: center;">
-            <div>Loading gallery. Please wait...</div>
-            <div> Tip: use WASD keys to look around </div>
-        </div>
-
-    </div>
-
-    
-
-    <div class="menu-container" id="menu-container">
-        <div class="flex" style="width:100%;">
-            <i class="bi bi-x" id="menu-close"></i>
-        </div>
-        <h2>
-            Menu
-        </h2>
-
-        <div style="font-size: 18px; font-weight: 600;">
-            Select the Gallery / Museum
-        </div>
-        <div id="menu-selection-list">
-
-        </div>
-        <hr  style="margin-top: 30px;">
-        <div >
-            <ul style="font-size: 14px; color: #2a2a2a; display: flex; flex-direction: column; gap: 10px;">
-                <li>Use WASD to move around</li>
-                <li>Use space to Jump</li>
-                <li>Escape key to open/close menu</li>
-                <li>Hover on annotation for details</li>
-                <li>Click on annotation to upload image</li>
-            </ul>
-        </div>
-
     </div>
 
     <div class="toast-alert" id="toast-alert" style="display: none;">
     </div>
 
-    <!-- <div>hello</div> -->
     <div class="upload-modal" id="upload-modal" style="display: none;">
         <div id="upload-close" class="upload-modal-close">
             <i class="bi bi-x"></i>
         </div>
         <div class="upload-container" id="upload-container">
-            
             <div id="upload-text">Upload image here</div>
-            
             <img src="" class="upload-preview" id="upload-preview">
             <input type="file" id="upload-input" accept=".png, .jpg, .jpeg" style="display: none;">
         </div>
         <div class="upload-details">
-            <input type="text" name="" id="upload-title" placeholder="title" maxlength="30">
-            <textarea name="" id="upload-description" placeholder="description"></textarea>
-            <input type="text" name="" id="upload-handle" placeholder="twitter handle" maxlength="30">
+            <input type="text" name="" id="upload-title" placeholder="Title" maxlength="30">
+            <textarea name="" id="upload-description" placeholder="Description"></textarea>
+            <input type="text" name="" id="upload-handle" placeholder="Twitter handle" maxlength="30">
             <button type="submit" id="upload-btn" class="btn" style="display: flex; gap: 5px; justify-content: center; align-items: center;">
                 Upload 
                 <div class="spinner" id="upload-spinner" style="display: none;"></div>
@@ -82,19 +346,14 @@
         </div>
     </div>
 
-    <div class="upload-cropper-container" id="upload-cropper-container" 
-            style="display: none;">
-        <div id="cropper-container" class="upload-cropper" >
+    <div class="upload-cropper-container" id="upload-cropper-container" style="display: none;">
+        <div id="cropper-container" class="upload-cropper">
             <img src="" class="crop-preview" id="crop-preview">
         </div>
         <div class="btn" id="crop-btn">Crop</div>
     </div>
 
     <div id="model-container"></div>
-
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css" integrity="sha512-UtLOu9C7NuThQhuXXrGwx9Jb/z9zPQJctuAgNUBK3Z6kkSYT9wJ+2+dh6klS+TDBCV9kNPBbAxbVD+vCcfGPaA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-
- 
 
 </body>
 </html>

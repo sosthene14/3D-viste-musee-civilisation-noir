@@ -106,28 +106,7 @@ container.addEventListener("keyup", (e) => {
     }
 });
 
-function initMenu() {
-    const menuContainer = document.getElementById("menu-container");
-    document.getElementById("menu-close").addEventListener("click", closeMenu);
-
-    const menuList = document.getElementById("menu-selection-list");
-    menuList.innerHTML = '<div style="font-size: 18px; font-weight: 600;">Art Gallery</div>';
-
-    document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") {
-            if (menuOpen) closeMenu();
-            else openMenu();
-        }
-    });
-
-    document.addEventListener("click", (e) => {
-        if (!menuContainer.contains(e.target)) {
-            closeMenu();
-        }
-    });
-}
-
-initMenu();
+ 
 
 function openMenu() {
     menuOpen = true;
@@ -270,16 +249,14 @@ function loadModel() {
         annotationMesh = {};
         gltf.scene.traverse((child) => {
             if (child.isMesh) {
-                console.log("Mesh found:", child.name);
-            }
+             }
             if (child.name === "art_gallery") {
                 gallery_mesh = child;
             }
 
             if (child.isMesh && /^art_holder\d*$/.test(child.name)) {
                 if (!(child.name in ArtHolderToGLB)) {
-                    console.log(`Hiding empty art_holder: ${child.name}`);
-                    child.visible = false;
+                     child.visible = false;
                     return;
                 }
 
@@ -316,8 +293,7 @@ function loadModel() {
 
                 const artwork = artworks.find(a => a.model3dUrl === `/${ArtHolderToGLB[child.name]}`);
                 if (artwork && artwork.imageUrl) {
-                    console.log(`Loading texture for ${child.name} from: ${artwork.imageUrl}`);
-                    textureLoader.load(artwork.imageUrl, (texture) => {
+                     textureLoader.load(artwork.imageUrl, (texture) => {
                         const material = new THREE.MeshBasicMaterial({ map: texture });
                         child.material = material;
                         child.material.needsUpdate = true;
@@ -343,30 +319,16 @@ function loadModel() {
             }
         });
 
-        console.log(`Found ${count} art_holder meshes with .glb models`);
-
+ 
         onWindowResize();
         fpView = new FirstPersonPlayer(camera, scene, container);
         fpView.loadOctaTree(gltf.scene);
         fpView.updatePlayer(0.01);
 
         loadingContainer.style.display = 'none';
-
-        getMuseumList(Museum.ART_GALLERY).then((data) => {
-            console.log("Museum data:", data);
-            data.data.forEach((data) => {
-                const { img_id, title, description, name } = data;
-                if (img_id in annotationMesh) {
-                    annotationMesh[img_id].annotationDiv.setAnnotationDetails(title, description, name);
-                }
-            });
-        }).catch((error) => {
-            console.error("Failed to fetch museum data:", error);
-            toastMessage("Failed to fetch museum data");
-        });
+ 
     }, (xhr) => {
         const progress = xhr.total > 0 ? (xhr.loaded / xhr.total) * 100 : (xhr.loaded / 60000);
-        document.getElementById('progress').style.width = progress + '%';
     }, (error) => {
         console.error("Failed to load Art Gallery model:", error);
         toastMessage("Failed to load Art Gallery model. Please check the console for details.");
