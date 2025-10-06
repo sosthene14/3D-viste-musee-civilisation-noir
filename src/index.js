@@ -1,29 +1,22 @@
-
-import "./style/index.css"
-
+import "./style/index.css";
 import * as THREE from 'three';
-
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-
-import { DecalGeometry } from 'three/addons/geometries/DecalGeometry.js';
-import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { CSS3DRenderer } from 'three/addons/renderers/CSS3DRenderer.js';
 import FirstPersonPlayer from './control';
 import AnnotationDiv from "./annotationDiv";
-
-import { displayUploadModal, getMeshSizeInPixels, initUploadModal, toastMessage } from "./utils";
+import { initUploadModal, toastMessage } from "./utils";
 import { getMuseumList } from "./services";
 import { Museum } from "./constants";
-import createImageMaterial from "./imageTexture";
+import artworks from "./artworkData";
+import QRCode from 'qrcode'; // Import QRCode library
 
 const clock = new THREE.Clock();
 const scene = new THREE.Scene();
 
 let model = null;
 let menuOpen = false;
-
-let currentMuseumId = Museum.ART_GALLERY;
-
 const STEPS_PER_FRAME = 5;
 let fpView;
 let gallery_mesh;
@@ -31,27 +24,33 @@ let annotationMesh = {};
 
 const ModelPaths = {
     [Museum.ART_GALLERY]: "art_gallery/scene.gltf",
-    [Museum.LOUVRE]: "art_hallway/scene.gltf",
-}
+};
+
+// Mapping des art_holder aux modèles .glb
+const ArtHolderToGLB = {
+    "art_holder1": "buf1.glb",
+    "art_holder2": "dogon2.glb",
+    "art_holder3": "fang2.glb",
+    "art_holder4": "femme_ch1.glb",
+    "art_holder5": "femme_fs1.glb",
+    "art_holder6": "nok2.glb",
+    "art_holder7": "trone2.glb",
+};
 
 initUploadModal();
 
 scene.background = new THREE.Color("#e6e6e6");
-// scene.fog = new THREE.Fog(0x88ccee, 0, 50);
-
 const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.rotation.order = 'YXZ';
-camera.position.set(0, 10, 0)
-
+camera.position.set(0, 1.6, 0);
 
 const container = document.getElementById('model-container');
 container.tabIndex = 0;
-container.focus()
+container.focus();
 
 const cssRenderer = new CSS2DRenderer();
 cssRenderer.domElement.style.position = 'absolute';
 cssRenderer.domElement.style.top = '0';
-// cssRenderer.domElement.style.zIndex = 1000;
 cssRenderer.setSize(container.clientWidth, container.clientHeight);
 container.appendChild(cssRenderer.domElement);
 
@@ -69,395 +68,339 @@ renderer.shadowMap.type = THREE.VSMShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 container.appendChild(renderer.domElement);
 
+// Load Google Model-Viewer script
+const modelViewerScript = document.createElement('script');
+modelViewerScript.src = 'https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js';
+modelViewerScript.type = 'module';
+document.head.appendChild(modelViewerScript);
+
+// Load QRCode library
+const qrCodeScript = document.createElement('script');
+qrCodeScript.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js';
+document.head.appendChild(qrCodeScript);
+
+// Load Tailwind CSS
+const tailwindScript = document.createElement('script');
+tailwindScript.src = 'https://cdn.tailwindcss.com';
+document.head.appendChild(tailwindScript);
 
 window.addEventListener('resize', onWindowResize);
 
 function onWindowResize() {
-
     camera.aspect = container.clientWidth / container.clientHeight;
     camera.updateProjectionMatrix();
-
     renderer.setSize(container.clientWidth, container.clientHeight);
     cssRenderer.setSize(container.clientWidth, container.clientHeight);
     css3dRenderer.setSize(container.clientWidth, container.clientHeight);
-
 }
 
 container.addEventListener("keydown", (e) => {
-
     if (e.key === "Shift") {
-        hideAnnotations()
+        hideAnnotations();
     }
-
-})
+});
 
 container.addEventListener("keyup", (e) => {
-
     if (e.key === "Shift") {
-        showAnnotations()
+        showAnnotations();
     }
+});
 
-})
+function initMenu() {
+    const menuContainer = document.getElementById("menu-container");
+    document.getElementById("menu-close").addEventListener("click", closeMenu);
 
-
-function initMenu(){
-
-    const menuContainer = document.getElementById("menu-container")
-
-    document.getElementById("menu-close").addEventListener("click", closeMenu)
-
-    const menuList = document.getElementById("menu-selection-list")
-
-    const listItem1 = document.createElement("div")
-    listItem1.textContent = "Art Gallery";
-    listItem1.classList.add("menu-item");
-    listItem1.addEventListener("click", () => setMuseumModel(Museum.ART_GALLERY))
-
-    const listItem2 = document.createElement("div")
-    listItem2.textContent = "Louvre Art Museum";
-    listItem2.classList.add("menu-item");
-    listItem2.addEventListener("click", () => setMuseumModel(Museum.LOUVRE));
-
-    menuList.appendChild(listItem1);
-    menuList.appendChild(listItem2);
-    
-    menuOpen = true;
+    const menuList = document.getElementById("menu-selection-list");
+    menuList.innerHTML = '<div style="font-size: 18px; font-weight: 600;">Art Gallery</div>';
 
     document.addEventListener("keydown", (e) => {
-        // console.log("key: ", e.key)
-        if (e.key === "Escape"){
-    
+        if (e.key === "Escape") {
             if (menuOpen) closeMenu();
             else openMenu();
         }
-    })
+    });
 
     document.addEventListener("click", (e) => {
-
-        if (!menuContainer.contains(e.target)){
-            closeMenu()
+        if (!menuContainer.contains(e.target)) {
+            closeMenu();
         }
-    })
-
+    });
 }
 
 initMenu();
 
-function openMenu(){
+function openMenu() {
     menuOpen = true;
     document.getElementById("menu-container").style.display = "flex";
 }
 
-function closeMenu(){
+function closeMenu() {
     menuOpen = false;
     document.getElementById("menu-container").style.display = "none";
 }
 
-
-function setMuseumModel(modelId){
-    currentMuseumId = modelId
-    loadModel()
-}
-
-/**
- * 
- * @param {THREE.Mesh} mesh 
- * @param {string} imgUrl 
- */
-function setImageToMesh(mesh, imgUrl) {
-
-    // const geometrySize = new THREE.Vector3()
-
-    // mesh.geometry.boundingBox.getSize(geometrySize)
-
-    // const textureLoader = new THREE.TextureLoader();
-    const { width, height } = getMeshSizeInPixels(mesh, camera, renderer)
-
-    // const {width: w1, height: h1} = calculateProjectedDimensions(mesh.geometry, camera, renderer)
-
-    // console.log("Mesh: ", mesh.name, width,  height,  geometrySize)
-    const imageMaterial = createImageMaterial(imgUrl, width / height)
-    // const imageMaterial = createImageMaterial(imgUrl, geometrySize.z / geometrySize.x)
-
-    mesh.material = imageMaterial;
-
-    mesh.material.needsUpdate = true
-    // textureLoader.load(imgUrl, (texture) => {
-
-
-    // });
-
-}
-
-
-document.body.addEventListener("uploadevent", (event) => {
-
-    console.log("event: ", event)
-
-    const { img_id, title, description, img_url, price, name } = event.detail
-
-    if (!(img_id in annotationMesh)) {
-        return
+function createModal(artwork, glbPath) {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4';
+    
+    const modalContent = document.createElement('div');
+    modalContent.className = 'bg-gray-900 rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col md:flex-row overflow-hidden relative';
+    
+    // Loading spinner
+    const loader = document.createElement('div');
+    loader.className = 'absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75 z-10';
+    loader.innerHTML = `
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
+    `;
+    
+    // Model viewer
+    const modelViewer = document.createElement('model-viewer');
+    modelViewer.className = 'w-full md:w-1/2 h-96 md:h-auto';
+    modelViewer.setAttribute('src', glbPath);
+    modelViewer.setAttribute('auto-rotate', '');
+    modelViewer.setAttribute('camera-controls', '');
+    modelViewer.setAttribute('ar', '');
+    modelViewer.setAttribute('shadow-intensity', '1');
+    modelViewer.style.backgroundColor = '#fff';
+    
+    // Hide loader when model is loaded
+    modelViewer.addEventListener('load', () => {
+        loader.style.display = 'none';
+    });
+    
+    // Details section
+    const detailsDiv = document.createElement('div');
+    detailsDiv.className = 'w-full md:w-1/2 p-6 text-white overflow-y-auto';
+    
+    // Language selector
+    const langSelect = document.createElement('select');
+    langSelect.className = 'mb-4 p-2 bg-gray-800 text-white rounded-md border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500';
+    langSelect.innerHTML = `
+        <option value="en">English</option>
+        <option value="fr">Français</option>
+        <option value="wo">Wolof</option>
+    `;
+    
+    // QR code canvas
+    const qrCanvas = document.createElement('canvas');
+    qrCanvas.className = 'mb-4';
+    QRCode.toCanvas(qrCanvas, `https://museum.example.com/artwork/${artwork.id}`, { width: 150 }, (error) => {
+        if (error) console.error('QR Code generation failed:', error);
+    });
+    
+    // Details content
+    const detailsContent = document.createElement('div');
+    detailsContent.className = 'space-y-4';
+    
+    function updateDetailsContent(lang) {
+        detailsContent.innerHTML = `
+            <h2 class="text-2xl font-bold">${artwork.title[lang]}</h2>
+            <p><strong>Description:</strong> ${artwork.description[lang]}</p>
+            <p><strong>Artist:</strong> ${artwork.artist}</p>
+            <p><strong>Period:</strong> ${artwork.period}</p>
+            <p><strong>Origin:</strong> ${artwork.origin}</p>
+            <p><strong>Category:</strong> ${artwork.category}</p>
+            <p><strong>QR Code:</strong> ${artwork.qrCode}</p>
+        `;
     }
-
-    annotationMesh[img_id].annotationDiv.setAnnotationDetails(title, description, name)
-
-    setImageToMesh(annotationMesh[img_id].mesh, img_url)
-
-})
-
+    
+    // Initialize with English
+    updateDetailsContent('en');
+    
+    // Update content on language change
+    langSelect.addEventListener('change', (e) => {
+        updateDetailsContent(e.target.value);
+    });
+    
+    // Close button
+    const closeButton = document.createElement('button');
+    closeButton.textContent = 'Close';
+    closeButton.className = 'absolute top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition';
+    closeButton.onclick = () => document.body.removeChild(modal);
+    
+    // Assemble modal
+    detailsDiv.appendChild(langSelect);
+    detailsDiv.appendChild(qrCanvas);
+    detailsDiv.appendChild(detailsContent);
+    modalContent.appendChild(loader);
+    modalContent.appendChild(modelViewer);
+    modalContent.appendChild(detailsDiv);
+    modalContent.appendChild(closeButton);
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+}
 
 const loader = new GLTFLoader().setPath('/assets/');
+const textureLoader = new THREE.TextureLoader();
 
-function clearSceneObjects(obj){
-    while(obj.children.length > 0){ 
-      clearSceneObjects(obj.children[0]);
-      obj.remove(obj.children[0]);
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('/assets/draco/');
+loader.setDRACOLoader(dracoLoader);
+
+function clearSceneObjects(obj) {
+    while (obj.children.length > 0) {
+        clearSceneObjects(obj.children[0]);
+        obj.remove(obj.children[0]);
     }
-    if(obj.geometry) obj.geometry.dispose();
-  
-    if(obj.material){ 
-      //in case of map, bumpMap, normalMap, envMap ...
-      Object.keys(obj.material).forEach(prop => {
-        if(!obj.material[prop])
-          return;
-        if(obj.material[prop] !== null && typeof obj.material[prop].dispose === 'function')                                  
-          obj.material[prop].dispose();                                                      
-      })
-      obj.material.dispose();
+    if (obj.geometry) obj.geometry.dispose();
+    if (obj.material) {
+        Object.keys(obj.material).forEach(prop => {
+            if (obj.material[prop] && typeof obj.material[prop].dispose === 'function') {
+                obj.material[prop].dispose();
+            }
+        });
+        obj.material.dispose();
     }
-  }   
-  
+}
 
+function loadModel() {
+    const loadingContainer = document.getElementById('loading-container');
+    loadingContainer.style.display = 'flex';
 
-function loadModel(){
-
-    document.getElementById('loading-container').style.display = 'flex'; //open the loading progress
-
-    // scene.remove.apply(scene, scene.children);
-    clearSceneObjects(scene)
+    clearSceneObjects(scene);
     const light = new THREE.AmbientLight("#fff", 5);
     scene.add(light);
-    
-    loader.load(ModelPaths[currentMuseumId], (gltf) => {
 
-        model = gltf
+    console.log("Loading model from:", `/assets/${ModelPaths[Museum.ART_GALLERY]}`);
+    loader.load(ModelPaths[Museum.ART_GALLERY], (gltf) => {
+        model = gltf;
         scene.add(gltf.scene);
 
         let count = 0;
-        annotationMesh = {}
+        annotationMesh = {};
         gltf.scene.traverse((child) => {
-    
-            if (child.name === "art_gallery") {
-                gallery_mesh = child
+            if (child.isMesh) {
+                console.log("Mesh found:", child.name);
             }
-    
-            if (child.isMesh && /^art_holder\d*$/.test(child.name)) {  // Regex to match "art_holder", "art_holder1", "art_holder2", etc.
-                count += 1;
-                // Create an annotation div element
-    
-                // annotationDiv.style.width = `50px`
-    
-                child.material = new THREE.MeshBasicMaterial()
-    
-                const geometry = child.geometry;
-                const uvs = geometry.attributes.uv.array;
-    
-                // Rotate UVs (example: 90 degrees clockwise)
-                // for (let i = 0; i < uvs.length; i += 2) {
-                //     const u = uvs[i];
-                //     const v = uvs[i + 1];
-                //     uvs[i] = v; // Swap u and v
-                //     uvs[i + 1] = (1 - u) ; // Adjust v accordingly
-                // }
-    
-                for (let i = 0; i < uvs.length; i += 2) {
-                    uvs[i + 1] = 1 - uvs[i + 1]; // Invert the V coordinate
+            if (child.name === "art_gallery") {
+                gallery_mesh = child;
+            }
+
+            if (child.isMesh && /^art_holder\d*$/.test(child.name)) {
+                if (!(child.name in ArtHolderToGLB)) {
+                    console.log(`Hiding empty art_holder: ${child.name}`);
+                    child.visible = false;
+                    return;
                 }
-    
-    
-                geometry.attributes.uv.needsUpdate = true; // Update UVs
-    
-    
+
+                count += 1;
                 const box = new THREE.Box3().setFromObject(child);
                 const center = new THREE.Vector3();
-                box.getCenter(center);  // Get the center of the bounding box in world coordinates
-    
-                // const annotationDiv = createAnnotationDiv(count)
-                const annotationDiv = new AnnotationDiv(count, child.name)
-                const label = new CSS2DObject(annotationDiv.getElement())
-                // center.copy(label.position)
-                label.position.set(center.x, center.y, center.z)
-    
-                annotationMesh[child.name] = { label, annotationDiv, mesh: child }
-    
+                box.getCenter(center);
+
+                const annotationDiv = new AnnotationDiv(count, child.name);
+                const label = new CSS2DObject(annotationDiv.getElement());
+                label.position.set(center.x, center.y + 0.5, center.z);
+
+                annotationMesh[child.name] = { label, annotationDiv, mesh: child };
+
                 annotationDiv.onAnnotationDblClick = ({ event, id }) => {
                     const targetPosition = label.position;
-    
-                    // Vector from camera to the target position
                     const direction = new THREE.Vector3();
                     direction.subVectors(targetPosition, camera.position).normalize();
-    
-                    // Adjust this to set how close you want the camera to get
                     const distance = 2;
-                    // Move the camera closer to the target
                     camera.position.addScaledVector(direction, distance);
-    
-                    // Ensure the camera looks at the target
                     camera.lookAt(targetPosition);
-                }
-    
-                annotationDiv.onAnnotationClick = ({ event, id }) => {
-                    const { width, height } = getMeshSizeInPixels(child, camera, renderer)
-                    const geometrySize = new THREE.Vector3()
-                    child.geometry.boundingBox.getSize(geometrySize)
+                };
 
-                    displayUploadModal(width / height, { img_id: child.name, museum: currentMuseumId })
-                    // displayUploadModal(geometrySize.z / geometry.x, { img_id: child.name, museum: currentModelId })
-                    // setCropAspectRatio()
-                }
-    
+                annotationDiv.onAnnotationClick = ({ event, id }) => {
+                    const artwork = artworks.find(a => a.model3dUrl === `/${ArtHolderToGLB[id]}`);
+                    if (artwork) {
+                        createModal(artwork, `/assets/${ArtHolderToGLB[id]}`);
+                    } else {
+                        toastMessage(`No details available for ${id}`);
+                    }
+                };
+
                 scene.add(label);
-                // annotations.push({ label, center, object: child }); 
+
+                const artwork = artworks.find(a => a.model3dUrl === `/${ArtHolderToGLB[child.name]}`);
+                if (artwork && artwork.imageUrl) {
+                    console.log(`Loading texture for ${child.name} from: ${artwork.imageUrl}`);
+                    textureLoader.load(artwork.imageUrl, (texture) => {
+                        const material = new THREE.MeshBasicMaterial({ map: texture });
+                        child.material = material;
+                        child.material.needsUpdate = true;
+
+                        const geometry = child.geometry;
+                        const uvs = geometry.attributes.uv.array;
+                        for (let i = 0; i < uvs.length; i += 2) {
+                            uvs[i + 1] = 1 - uvs[i + 1];
+                        }
+                        geometry.attributes.uv.needsUpdate = true;
+                    }, undefined, (error) => {
+                        console.error(`Failed to load texture ${artwork.imageUrl}:`, error);
+                        toastMessage(`Failed to load image for ${child.name}`);
+                    });
+                } else {
+                    console.warn(`No imageUrl for ${child.name}`);
+                    child.visible = false;
+                }
+
+                if (artwork) {
+                    annotationDiv.setAnnotationDetails(artwork.title.en, artwork.description.en, artwork.artist);
+                }
             }
         });
-    
-    
-        // gltf.scene.traverse(child => {
-    
-        //     if (child.isMesh) {
-    
-    
-        //         // child.castShadow = true;
-        //         // child.receiveShadow = true;
-    
-        //         // if (child.material.map) {
-    
-        //         //     child.material.map.anisotropy = 4;
-    
-        //         // }
-    
-        //     }
-        // });
-    
-        onWindowResize();
-    
-        fpView = new FirstPersonPlayer(camera, scene, container)
-    
-        fpView.loadOctaTree(gltf.scene)
-        // worldOctree.fromGraphNode(gltf.scene);
-    
-        fpView.updatePlayer(0.01);
-    
-        document.getElementById('loading-container').style.display = 'none'; //hide the loading progress
-    
-    
-        getMuseumList(currentMuseumId).then((data) => {
-            console.log("museum data: ", data)
-            data.data.forEach((data) => {
-    
-                const { img_id, title, description, img_cid, price, name } = data
-    
-                if (!(img_id in annotationMesh)) {
-                    return
-                }
-    
-                annotationMesh[img_id].annotationDiv.setAnnotationDetails(title, description, name)
-    
-                setImageToMesh(annotationMesh[img_id].mesh, `https://gateway.pinata.cloud/ipfs/${img_cid}`)
-            })
-        })
-    
-    
-    }, (xhr) => {
-        // Update loading progress
-        const progress = xhr.total > 0 ? (xhr.loaded / xhr.total) * 100 : (xhr.loaded / 60000) // a fixed number of bytes
-        document.getElementById('progress').style.width = progress + '%'
-        // console.log("Progress: ", xhr.loaded, xhr.total, xhr);
-    }, (error) => {
-        toastMessage("An error occurred loading model. Contact Paul.")
-    });
 
+        console.log(`Found ${count} art_holder meshes with .glb models`);
+
+        onWindowResize();
+        fpView = new FirstPersonPlayer(camera, scene, container);
+        fpView.loadOctaTree(gltf.scene);
+        fpView.updatePlayer(0.01);
+
+        loadingContainer.style.display = 'none';
+
+        getMuseumList(Museum.ART_GALLERY).then((data) => {
+            console.log("Museum data:", data);
+            data.data.forEach((data) => {
+                const { img_id, title, description, name } = data;
+                if (img_id in annotationMesh) {
+                    annotationMesh[img_id].annotationDiv.setAnnotationDetails(title, description, name);
+                }
+            });
+        }).catch((error) => {
+            console.error("Failed to fetch museum data:", error);
+            toastMessage("Failed to fetch museum data");
+        });
+    }, (xhr) => {
+        const progress = xhr.total > 0 ? (xhr.loaded / xhr.total) * 100 : (xhr.loaded / 60000);
+        document.getElementById('progress').style.width = progress + '%';
+    }, (error) => {
+        console.error("Failed to load Art Gallery model:", error);
+        toastMessage("Failed to load Art Gallery model. Please check the console for details.");
+        loadingContainer.style.display = 'none';
+        const geometry = new THREE.PlaneGeometry(10, 10);
+        const material = new THREE.MeshBasicMaterial({ color: 0x808080 });
+        const plane = new THREE.Mesh(geometry, material);
+        plane.rotation.x = -Math.PI / 2;
+        scene.add(plane);
+    });
 }
 
-
-loadModel()
-
-
-
 function hideAnnotations() {
-    Object.values(annotationMesh).forEach(({ label, annotationDiv }) => {
-        label.element.style.opacity = "0"
-    })
+    Object.values(annotationMesh).forEach(({ label }) => {
+        label.element.style.opacity = "0";
+    });
 }
 
 function showAnnotations() {
-    Object.values(annotationMesh).forEach(({ label, annotationDiv }) => {
-        label.element.style.opacity = "100"
-    })
-}
-
-
-function updateAnnotations() {
-    // Update the camera's position each frame
-    camera.getWorldPosition(camera.position);
-    model?.scene.traverse((child) => {
-        if (child.isMesh && /^art_holder\d*$/.test(child.name)) {
-            const box = new THREE.Box3().setFromObject(child);
-            const center = new THREE.Vector3();
-            box.getCenter(center);
-
-            // Create a ray from the camera to the annotation
-            const direction = center.clone().sub(camera.position).normalize();
-            raycaster.set(camera.position, direction);
-
-            // Check for intersections with other meshes
-            const intersects = raycaster.intersectObjects(model.scene.children, true);
-            let isOccluded = false;
-
-            // Check if the first intersection is closer than the annotation distance
-            if (intersects.length > 0) {
-                const distanceToFirstObject = intersects[0].distance;
-                const distanceToAnnotation = camera.position.distanceTo(center);
-
-                if (distanceToFirstObject < distanceToAnnotation) {
-                    isOccluded = true;
-                }
-            }
-
-            // Find the corresponding label and set visibility
-            const annotationLabel = child.annotationLabel; // Assuming you store a reference to the annotation in the mesh
-            if (annotationLabel) {
-                annotationLabel.visible = !isOccluded; // Show/hide based on occlusion
-            }
-        }
+    Object.values(annotationMesh).forEach(({ label }) => {
+        label.element.style.opacity = "1";
     });
 }
 
-
 function animate() {
-
     const deltaTime = Math.min(0.05, clock.getDelta()) / STEPS_PER_FRAME;
-
-    // we look for collisions in substeps to mitigate the risk of
-    // an object traversing another too quickly for detection.
-
     for (let i = 0; i < STEPS_PER_FRAME; i++) {
-
-        fpView?.update(deltaTime)
+        fpView?.update(deltaTime);
     }
-
-    // updateAnnotations()
-    // checkAnnotationVisibility();
     cssRenderer.render(scene, camera);
     css3dRenderer.render(scene, camera);
     renderer.render(scene, camera);
-
-    // stats.update();
-    requestAnimationFrame(animate)
-
-
+    requestAnimationFrame(animate);
 }
-// renderer.setAnimationLoop(animate);
 
+loadModel();
 animate()
